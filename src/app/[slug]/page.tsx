@@ -78,7 +78,7 @@ export default async function PollPage({
     <main className="min-h-screen flex items-center justify-center p-8">
       <div className="max-w-2xl w-full">
         <h1 className="text-4xl font-bold mb-8 text-center">
-          Weekday Poll Portal
+          Morning Meeples Weekday Poll
         </h1>
 
         {pollError && (
@@ -88,8 +88,8 @@ export default async function PollPage({
         {poll && (
           <div className="border rounded-xl p-6 space-y-4">
             <div>
-              <h2 className="text-2xl font-semibold">{poll.title}</h2>
-              <p className="text-gray-300 mt-2">{poll.description}</p>
+              <h2 className="text-2xl font-semibold">{poll.description}</h2>
+              
             </div>
 
             <div>
