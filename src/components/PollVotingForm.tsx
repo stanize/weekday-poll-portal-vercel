@@ -138,6 +138,26 @@ export default function PollVotingForm({ pollId, pollDates }: PollVotingFormProp
   const maxVotes = Math.max(...pollDates.map((d) => d.vote_count), 0);
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <label htmlFor="voterName" className="block text-sm font-medium">
+          Name (Required)
+        </label>
+        <input
+          id="voterName"
+          type="text"
+          value={voterName}
+          onChange={(e) => handleNameChange(e.target.value)}
+          className="w-full rounded-lg border px-3 py-2 bg-transparent"
+          placeholder="Your name"
+          required
+        />
+        {isUpdating && (
+          <p className="text-sm text-yellow-400">
+            Existing votes found — editing will replace them.
+          </p>
+        )}
+      </div>
+
       <ul className="space-y-3">
         {pollDates.map((date) => (
             <li key={date.id} className="border rounded-lg px-4 py-3">
@@ -175,25 +195,6 @@ export default function PollVotingForm({ pollId, pollDates }: PollVotingFormProp
         ))}
       </ul>
 
-      <div className="space-y-2">
-        <label htmlFor="voterName" className="block text-sm font-medium">
-          Name (Required)
-        </label>
-        <input
-          id="voterName"
-          type="text"
-          value={voterName}
-          onChange={(e) => handleNameChange(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 bg-transparent"
-          placeholder="Your name"
-          required
-        />
-        {isUpdating && (
-          <p className="text-sm text-yellow-400">
-            Existing votes found — editing will replace them.
-          </p>
-        )}
-      </div>
 
       <button
         type="submit"
