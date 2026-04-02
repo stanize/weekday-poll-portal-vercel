@@ -1,6 +1,10 @@
 import { supabase } from "@/lib/supabase/client";
 import PollVotingForm from "@/components/PollVotingForm";
 
+export const metadata = {
+  title: "Morning Meeples Poll",
+};
+
 type Poll = {
   id: string;
   title: string;
