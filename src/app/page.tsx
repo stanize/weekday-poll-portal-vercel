@@ -60,9 +60,9 @@ export default async function Home() {
     if (error) {
       pollDatesError = error.message;
     } else if (data) {
-      pollDates = data;
+      pollDates = data as Pick<PollDate, "id" | "weekday_name" | "poll_date">[];
     }
-
+    
   const pollDateIds = pollDates.map((d) => d.id);
 
   const { data: votesData, error: votesError } = await supabase
