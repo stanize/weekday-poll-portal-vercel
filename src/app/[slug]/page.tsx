@@ -23,14 +23,16 @@ type VoteRow = {
 export default async function PollPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = await params;
+
   const { data: poll, error: pollError } = await supabase
     .from("polls")
     .select("id, title, description")
-    .eq("slug", params.slug)
+    .eq("slug", slug)
     .single<Poll>();
-
+  
   let pollDates: PollDate[] = [];
   let pollDatesError: string | null = null;
   let voteCountsMap: Record<string, number> = {};
