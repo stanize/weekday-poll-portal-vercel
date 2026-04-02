@@ -44,9 +44,13 @@ function getWeekdays(monday: Date): { weekday_name: string; poll_date: string }[
   return days.map((name, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
+    // Use UTC values to avoid timezone shift
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return {
       weekday_name: name,
-      poll_date: d.toISOString().split("T")[0],
+      poll_date: `${year}-${month}-${day}`,
     };
   });
 }
