@@ -1,6 +1,10 @@
 import { supabase } from "@/lib/supabase/client";
 import AdminPanel from "./AdminPanel";
 
+export const metadata = {
+  title: "Sauron is watching! 👁️",
+};
+
 export default async function AdminPage() {
   const { data: poll } = await supabase
     .from("polls")
