@@ -16,8 +16,7 @@ function getUpcomingMondays(count = 4): Date[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find the current or next Monday
-  const day = today.getDay(); // 0 = Sun, 1 = Mon, ...
+  const day = today.getDay();
   const daysUntilMonday = day === 1 ? 0 : (8 - day) % 7;
   const nextMonday = new Date(today);
   nextMonday.setDate(today.getDate() + daysUntilMonday);
@@ -44,7 +43,6 @@ function getWeekdays(monday: Date): { weekday_name: string; poll_date: string }[
   return days.map((name, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    // Use UTC values to avoid timezone shift
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
@@ -59,8 +57,8 @@ export default function AdminPanel({ poll }: { poll: Poll | null }) {
   const router = useRouter();
   const mondays = getUpcomingMondays(4);
   const [selectedMonday, setSelectedMonday] = useState<Date>(mondays[0]);
-  const [isResetting, setIsResetting] = useState(false);
-  const [isReinitializing, setIsReinitializing] = useState(false);
+  const [isResettingVotes, setIsResettingVotes] = useState(false);
+  const [isResettingPoll, setIsResettingPoll] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
 
@@ -69,15 +67,14 @@ export default function AdminPanel({ poll }: { poll: Poll | null }) {
     setMessageType(type);
   }
 
-  async function handleReset() {
+  async function handleResetVotes() {
     if (!poll) return;
-    if (!confirm("This will delete all votes and poll dates. Are you sure?")) return;
+    if (!confirm("This will clear all votes but keep the poll dates. Are you sure?")) return;
 
-    setIsResetting(true);
+    setIsResettingVotes(true);
     setMessage("");
 
     try {
-      // Delete votes first (FK constraint)
       const { data: pollDates } = await supabase
         .from("poll_dates")
         .select("id")
@@ -86,39 +83,32 @@ export default function AdminPanel({ poll }: { poll: Poll | null }) {
       const pollDateIds = (pollDates ?? []).map((d) => d.id);
 
       if (pollDateIds.length > 0) {
-        const { error: votesError } = await supabase
+        const { error } = await supabase
           .from("votes")
           .delete()
           .in("poll_date_id", pollDateIds);
 
-        if (votesError) throw new Error(`Error deleting votes: ${votesError.message}`);
+        if (error) throw new Error(`Error clearing votes: ${error.message}`);
       }
 
-      const { error: datesError } = await supabase
-        .from("poll_dates")
-        .delete()
-        .eq("poll_id", poll.id);
-
-      if (datesError) throw new Error(`Error deleting poll dates: ${datesError.message}`);
-
-      showMessage("Poll reset successfully. Votes and dates cleared.", "success");
+      showMessage("Votes cleared successfully. Poll dates kept intact.", "success");
       router.refresh();
     } catch (err) {
       showMessage(err instanceof Error ? err.message : "Something went wrong.", "error");
     } finally {
-      setIsResetting(false);
+      setIsResettingVotes(false);
     }
   }
 
-  async function handleReinitialize() {
+  async function handleResetPoll() {
     if (!poll) return;
-    if (!confirm(`Reinitialize poll with week of ${formatMonday(selectedMonday)}?`)) return;
+    if (!confirm(`This will clear all votes & dates, then create a new week starting ${formatMonday(selectedMonday)}. Are you sure?`)) return;
 
-    setIsReinitializing(true);
+    setIsResettingPoll(true);
     setMessage("");
 
     try {
-      // Clear existing dates & votes first
+      // Fetch existing dates
       const { data: existingDates } = await supabase
         .from("poll_dates")
         .select("id")
@@ -126,12 +116,24 @@ export default function AdminPanel({ poll }: { poll: Poll | null }) {
 
       const existingIds = (existingDates ?? []).map((d) => d.id);
 
+      // Delete votes first
       if (existingIds.length > 0) {
-        await supabase.from("votes").delete().in("poll_date_id", existingIds);
-        await supabase.from("poll_dates").delete().eq("poll_id", poll.id);
+        const { error: votesError } = await supabase
+          .from("votes")
+          .delete()
+          .in("poll_date_id", existingIds);
+
+        if (votesError) throw new Error(`Error deleting votes: ${votesError.message}`);
+
+        const { error: datesError } = await supabase
+          .from("poll_dates")
+          .delete()
+          .eq("poll_id", poll.id);
+
+        if (datesError) throw new Error(`Error deleting dates: ${datesError.message}`);
       }
 
-      // Insert new Mon–Fri dates
+      // Insert new Mon–Fri
       const weekdays = getWeekdays(selectedMonday);
       const rowsToInsert = weekdays.map((day) => ({
         poll_id: poll.id,
@@ -145,40 +147,40 @@ export default function AdminPanel({ poll }: { poll: Poll | null }) {
 
       if (insertError) throw new Error(`Error inserting dates: ${insertError.message}`);
 
-      showMessage(`Poll reinitialized for week of ${formatMonday(selectedMonday)}.`, "success");
+      showMessage(`Poll reset for week of ${formatMonday(selectedMonday)}.`, "success");
       router.refresh();
     } catch (err) {
       showMessage(err instanceof Error ? err.message : "Something went wrong.", "error");
     } finally {
-      setIsReinitializing(false);
+      setIsResettingPoll(false);
     }
   }
 
   return (
     <div className="border rounded-xl p-6 space-y-8">
 
-      {/* Reset */}
+      {/* Reset Votes */}
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold">Reset Poll</h2>
+        <h2 className="text-xl font-semibold">Reset Votes</h2>
         <p className="text-sm text-gray-400">
-          Clears all votes and poll dates. The poll itself is kept.
+          Clears all votes but keeps the poll dates intact.
         </p>
         <button
-          onClick={handleReset}
-          disabled={isResetting || !poll}
-          className="rounded-lg border border-red-500 text-red-500 px-4 py-2 font-medium hover:bg-red-500 hover:text-black transition disabled:opacity-50"
+          onClick={handleResetVotes}
+          disabled={isResettingVotes || !poll}
+          className="rounded-lg border border-yellow-500 text-yellow-500 px-4 py-2 font-medium hover:bg-yellow-500 hover:text-black transition disabled:opacity-50"
         >
-          {isResetting ? "Resetting..." : "Reset votes & dates"}
+          {isResettingVotes ? "Clearing..." : "Reset votes"}
         </button>
       </div>
 
       <hr className="border-gray-700" />
 
-      {/* Reinitialize */}
+      {/* Reset Poll */}
       <div className="space-y-3">
-        <h2 className="text-xl font-semibold">Reinitialize Poll</h2>
+        <h2 className="text-xl font-semibold">Reset Poll</h2>
         <p className="text-sm text-gray-400">
-          Clears existing dates & votes and creates Mon–Fri for the selected week.
+          Clears all votes & dates, then creates Mon–Fri for the selected week.
         </p>
 
         <div className="space-y-1">
@@ -206,11 +208,11 @@ export default function AdminPanel({ poll }: { poll: Poll | null }) {
         </div>
 
         <button
-          onClick={handleReinitialize}
-          disabled={isReinitializing || !poll}
-          className="rounded-lg border px-4 py-2 font-medium hover:bg-white hover:text-black transition disabled:opacity-50"
+          onClick={handleResetPoll}
+          disabled={isResettingPoll || !poll}
+          className="rounded-lg border border-red-500 text-red-500 px-4 py-2 font-medium hover:bg-red-500 hover:text-black transition disabled:opacity-50"
         >
-          {isReinitializing ? "Reinitializing..." : "Reinitialize poll"}
+          {isResettingPoll ? "Resetting..." : "Reset poll"}
         </button>
       </div>
 
