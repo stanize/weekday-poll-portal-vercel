@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -45,7 +45,7 @@ function getSessionToken() {
 function groupByMonth(dates: UserPollDate[]): [string, UserPollDate[]][] {
   const map: Record<string, UserPollDate[]> = {};
   for (const d of dates) {
-    const key = d.poll_date.slice(0, 7); // "YYYY-MM"
+    const key = d.poll_date.slice(0, 7);
     if (!map[key]) map[key] = [];
     map[key].push(d);
   }
@@ -54,7 +54,7 @@ function groupByMonth(dates: UserPollDate[]): [string, UserPollDate[]][] {
 
 function buildMonthCells(yearMonth: string): (number | null)[] {
   const [year, month] = yearMonth.split("-").map(Number);
-  const firstDow = new Date(year, month - 1, 1).getDay(); // 0 = Sunday
+  const firstDow = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells: (number | null)[] = Array<null>(firstDow).fill(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
@@ -67,10 +67,11 @@ const DOW_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 type CalendarViewProps = {
   pollDates: UserPollDate[];
   selectedDateIds: string[];
-  toggleDate: (id: string) => void;
+  hasName: boolean;
+  onDateClick: (id: string) => void;
 };
 
-function CalendarView({ pollDates, selectedDateIds, toggleDate }: CalendarViewProps) {
+function CalendarView({ pollDates, selectedDateIds, hasName, onDateClick }: CalendarViewProps) {
   const dateByYMD = Object.fromEntries(pollDates.map((d) => [d.poll_date, d]));
   const months = groupByMonth(pollDates);
 
@@ -101,7 +102,7 @@ function CalendarView({ pollDates, selectedDateIds, toggleDate }: CalendarViewPr
 
                 if (!pollDate) {
                   return (
-                    <div key={idx} className="py-1.5 text-gray-700">
+                    <div key={idx} className="py-2 text-gray-700">
                       {day}
                     </div>
                   );
@@ -119,17 +120,19 @@ function CalendarView({ pollDates, selectedDateIds, toggleDate }: CalendarViewPr
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => toggleDate(pollDate.id)}
+                    onClick={() => onDateClick(pollDate.id)}
                     title={tooltipParts.length > 0 ? tooltipParts.join(" · ") : undefined}
-                    className={`relative rounded py-1.5 font-medium transition ${
-                      isSelected
+                    className={`relative block rounded font-medium transition min-h-10 p-1 ${
+                      !hasName
+                        ? "border opacity-40 cursor-not-allowed"
+                        : isSelected
                         ? "bg-white text-black"
                         : "border hover:bg-white hover:text-black"
                     }`}
                   >
-                    {day}
+                    <span className="block text-center">{day}</span>
                     {pollDate.vote_count > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 bg-green-600 text-white rounded-full text-[10px] flex items-center justify-center px-0.5 leading-none">
+                      <span className="absolute bottom-0.5 left-0.5 inline-flex items-center bg-green-600 text-white text-[9px] leading-none px-1 py-0.5 rounded font-normal">
                         {pollDate.vote_count}
                       </span>
                     )}
@@ -148,11 +151,15 @@ function CalendarView({ pollDates, selectedDateIds, toggleDate }: CalendarViewPr
 
 export default function UserPollVotingForm({ pollId, pollDates }: UserPollVotingFormProps) {
   const router = useRouter();
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   const [selectedDateIds, setSelectedDateIds] = useState<string[]>([]);
   const [voterName, setVoterName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [namePromptVisible, setNamePromptVisible] = useState(false);
+  const [topN, setTopN] = useState<number | "all">(5);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,6 +168,14 @@ export default function UserPollVotingForm({ pollId, pollDates }: UserPollVoting
 
   const allPollDateIds = pollDates.map((d) => d.id);
   const useCalendarView = pollDates.length > 5;
+  const hasName = voterName.trim().length > 0;
+
+  // Dates with votes, sorted by vote count desc — derived from server-rendered prop
+  const datesWithVotes = [...pollDates]
+    .filter((d) => d.vote_count > 0)
+    .sort((a, b) => b.vote_count - a.vote_count);
+  const topChoices =
+    topN === "all" ? datesWithVotes : datesWithVotes.slice(0, topN as number);
 
   function toggleDate(dateId: string) {
     setSelectedDateIds((current) =>
@@ -170,9 +185,20 @@ export default function UserPollVotingForm({ pollId, pollDates }: UserPollVoting
     );
   }
 
+  function handleDateClick(dateId: string) {
+    if (!hasName) {
+      setNamePromptVisible(true);
+      nameInputRef.current?.focus();
+      return;
+    }
+    setNamePromptVisible(false);
+    toggleDate(dateId);
+  }
+
   function handleNameChange(name: string) {
     setVoterName(name);
     setMessage("");
+    if (name.trim()) setNamePromptVisible(false);
 
     const trimmed = name.trim().toLowerCase();
     const existingDates = pollDates
@@ -195,7 +221,8 @@ export default function UserPollVotingForm({ pollId, pollDates }: UserPollVoting
     setMessage("");
 
     if (!voterName.trim()) {
-      setMessage("Please enter your name.");
+      setNamePromptVisible(true);
+      nameInputRef.current?.focus();
       return;
     }
 
@@ -254,36 +281,41 @@ export default function UserPollVotingForm({ pollId, pollDates }: UserPollVoting
 
   const maxVotes = Math.max(...pollDates.map((d) => d.vote_count), 0);
 
-  const nameInput = (
-    <div className="space-y-2">
-      <label htmlFor="voterName" className="block text-sm font-medium">
-        Name (Required)
-      </label>
-      <input
-        id="voterName"
-        type="text"
-        value={voterName}
-        onChange={(e) => handleNameChange(e.target.value)}
-        className="w-full rounded-lg border px-3 py-2 bg-transparent"
-        placeholder="Your name"
-        required
-      />
-      {isUpdating && (
-        <p className="text-sm text-yellow-400">
-          Existing votes found — editing will replace them.
-        </p>
-      )}
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Name input — always at the top */}
+      <div className="space-y-1">
+        <label htmlFor="voterName" className="block text-sm font-medium">
+          Name (Required)
+        </label>
+        <input
+          ref={nameInputRef}
+          id="voterName"
+          type="text"
+          value={voterName}
+          onChange={(e) => handleNameChange(e.target.value)}
+          className="w-full rounded-lg border px-3 py-2 bg-transparent"
+          placeholder="Your name"
+          required
+        />
+        {namePromptVisible && !hasName && (
+          <p className="text-sm text-amber-400">Please enter your name first.</p>
+        )}
+        {isUpdating && (
+          <p className="text-sm text-yellow-400">
+            Existing votes found — editing will replace them.
+          </p>
+        )}
+      </div>
+
+      {/* Date selection */}
       {useCalendarView ? (
         <>
           <CalendarView
             pollDates={pollDates}
             selectedDateIds={selectedDateIds}
-            toggleDate={toggleDate}
+            hasName={hasName}
+            onDateClick={handleDateClick}
           />
           {selectedDateIds.length > 0 && (
             <p className="text-xs text-gray-400">
@@ -291,53 +323,55 @@ export default function UserPollVotingForm({ pollId, pollDates }: UserPollVoting
               {selectedDateIds.length === 1 ? "" : "s"} selected
             </p>
           )}
-          {nameInput}
         </>
       ) : (
-        <>
-          {nameInput}
-          <ul className="space-y-3">
-            {pollDates.map((date) => (
-              <li key={date.id} className="border rounded-lg px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedDateIds.includes(date.id)}
-                    onChange={() => toggleDate(date.id)}
-                    className="h-4 w-4 shrink-0"
-                  />
-                  <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
-                    <span className="font-medium">
-                      {date.weekday_name}, {formatPollDate(date.poll_date)}
-                      {date.time_slot && (
-                        <span className="text-gray-400 font-normal">
-                          {" "}— {date.time_slot}
-                        </span>
-                      )}
-                    </span>
-                    {(date.voter_names ?? []).length > 0 && (
-                      <span className="text-sm text-gray-400">
-                        ({(date.voter_names ?? []).join(", ")})
+        <ul className="space-y-3">
+          {pollDates.map((date) => (
+            <li key={date.id} className="border rounded-lg px-4 py-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedDateIds.includes(date.id)}
+                  onChange={() => handleDateClick(date.id)}
+                  className={`h-4 w-4 shrink-0 ${
+                    !hasName ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+                  }`}
+                />
+                <label
+                  className={`flex items-center gap-2 flex-1 min-w-0 ${
+                    !hasName ? "opacity-40" : "cursor-pointer"
+                  }`}
+                >
+                  <span className="font-medium">
+                    {date.weekday_name}, {formatPollDate(date.poll_date)}
+                    {date.time_slot && (
+                      <span className="text-gray-400 font-normal">
+                        {" "}— {date.time_slot}
                       </span>
                     )}
-                  </label>
-                  <span className="text-sm text-gray-400 whitespace-nowrap shrink-0">
-                    {date.vote_count} vote{date.vote_count === 1 ? "" : "s"}
                   </span>
-                </div>
+                  {(date.voter_names ?? []).length > 0 && (
+                    <span className="text-sm text-gray-400">
+                      ({(date.voter_names ?? []).join(", ")})
+                    </span>
+                  )}
+                </label>
+                <span className="text-sm text-gray-400 whitespace-nowrap shrink-0">
+                  {date.vote_count} vote{date.vote_count === 1 ? "" : "s"}
+                </span>
+              </div>
 
-                {maxVotes > 0 && (
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-gray-800">
-                    <div
-                      className="h-1.5 rounded-full bg-green-500 transition-all duration-500"
-                      style={{ width: `${(date.vote_count / maxVotes) * 100}%` }}
-                    />
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
+              {maxVotes > 0 && (
+                <div className="mt-2 h-1.5 w-full rounded-full bg-gray-800">
+                  <div
+                    className="h-1.5 rounded-full bg-green-500 transition-all duration-500"
+                    style={{ width: `${(date.vote_count / maxVotes) * 100}%` }}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
       <button
@@ -349,6 +383,57 @@ export default function UserPollVotingForm({ pollId, pollDates }: UserPollVoting
       </button>
 
       {message && <p className="text-sm text-gray-300">{message}</p>}
+
+      {/* Top Choices */}
+      <div className="space-y-3 pt-4 border-t border-gray-800">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Top Choices</p>
+          <select
+            value={topN === "all" ? "all" : String(topN)}
+            onChange={(e) =>
+              setTopN(e.target.value === "all" ? "all" : Number(e.target.value))
+            }
+            className="text-sm rounded-lg border px-2 py-1 bg-transparent"
+          >
+            <option value="3">Top 3</option>
+            <option value="5">Top 5</option>
+            <option value="10">Top 10</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
+        {topChoices.length === 0 ? (
+          <p className="text-sm text-gray-500">No votes yet — be the first!</p>
+        ) : (
+          <ol className="space-y-2">
+            {topChoices.map((date, i) => (
+              <li key={date.id} className="flex items-start gap-3">
+                <span className="text-xs text-gray-600 w-4 shrink-0 mt-0.5">
+                  {i + 1}.
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">
+                    {date.weekday_name}, {formatPollDate(date.poll_date)}
+                    {date.time_slot && (
+                      <span className="text-gray-400 font-normal">
+                        {" "}— {date.time_slot}
+                      </span>
+                    )}
+                  </p>
+                  {date.voter_names.length > 0 && (
+                    <p className="text-xs text-gray-500 truncate">
+                      {date.voter_names.join(", ")}
+                    </p>
+                  )}
+                </div>
+                <span className="text-sm text-gray-400 whitespace-nowrap shrink-0">
+                  {date.vote_count} vote{date.vote_count === 1 ? "" : "s"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </form>
   );
 }
