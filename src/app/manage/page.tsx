@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import CopyLinkButton from "./CopyLinkButton";
+import DeletePollButton from "./DeletePollButton";
 
 export const metadata = {
   title: "My Polls — Morning Meeples",
@@ -104,6 +105,7 @@ export default async function ManagePollsPage() {
                       View voting page →
                     </Link>
                     <CopyLinkButton url={votingUrl} />
+                    <DeletePollButton pollId={poll.id} pollTitle={poll.title} />
                   </div>
                 </li>
               );

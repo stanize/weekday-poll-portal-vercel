@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import UserPollVotingForm from "./UserPollVotingForm";
 
@@ -22,6 +23,32 @@ type VoteRow = {
   voter_name: string | null;
 };
 
+function ManageLink() {
+  return (
+    <Link
+      href="/auth?next=/manage"
+      className="fixed top-4 right-4 p-2 text-gray-600 hover:text-white transition rounded-lg hover:bg-white/10"
+      title="Manage my polls"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    </Link>
+  );
+}
+
 export default async function UserPollPage({
   params,
 }: {
@@ -38,14 +65,17 @@ export default async function UserPollPage({
 
   if (pollError || !poll) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full text-center space-y-2">
-          <h1 className="text-4xl font-bold">Poll not found</h1>
-          <p className="text-gray-400">
-            This link may have expired or the poll doesn&apos;t exist.
-          </p>
-        </div>
-      </main>
+      <>
+        <ManageLink />
+        <main className="min-h-screen flex items-center justify-center p-8">
+          <div className="max-w-2xl w-full text-center space-y-2">
+            <h1 className="text-4xl font-bold">Poll not found</h1>
+            <p className="text-gray-400">
+              This link may have expired or the poll doesn&apos;t exist.
+            </p>
+          </div>
+        </main>
+      </>
     );
   }
 
@@ -91,29 +121,32 @@ export default async function UserPollPage({
   }));
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="max-w-2xl w-full">
-        <div className="text-center space-y-1 mb-8">
-          <h1 className="text-4xl font-bold">{poll.title}</h1>
-          {poll.description && (
-            <p className="text-gray-400">{poll.description}</p>
-          )}
+    <>
+      <ManageLink />
+      <main className="min-h-screen flex items-center justify-center p-8">
+        <div className="max-w-2xl w-full">
+          <div className="text-center space-y-1 mb-8">
+            <h1 className="text-4xl font-bold">{poll.title}</h1>
+            {poll.description && (
+              <p className="text-gray-400">{poll.description}</p>
+            )}
+          </div>
+
+          <div className="border rounded-xl p-6 space-y-4">
+            {pollDatesError && (
+              <p className="text-red-500">Error loading dates: {pollDatesError}</p>
+            )}
+
+            {!pollDatesError && pollDatesWithCounts.length > 0 && (
+              <UserPollVotingForm pollId={poll.id} pollDates={pollDatesWithCounts} />
+            )}
+
+            {!pollDatesError && pollDatesWithCounts.length === 0 && (
+              <p className="text-gray-400">No dates available for this poll.</p>
+            )}
+          </div>
         </div>
-
-        <div className="border rounded-xl p-6 space-y-4">
-          {pollDatesError && (
-            <p className="text-red-500">Error loading dates: {pollDatesError}</p>
-          )}
-
-          {!pollDatesError && pollDatesWithCounts.length > 0 && (
-            <UserPollVotingForm pollId={poll.id} pollDates={pollDatesWithCounts} />
-          )}
-
-          {!pollDatesError && pollDatesWithCounts.length === 0 && (
-            <p className="text-gray-400">No dates available for this poll.</p>
-          )}
-        </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
