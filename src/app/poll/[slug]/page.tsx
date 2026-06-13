@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import UserPollVotingForm from "./UserPollVotingForm";
@@ -22,6 +23,30 @@ type VoteRow = {
   poll_date_id: string;
   voter_name: string | null;
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = await createSupabaseServerClient();
+
+  const { data: poll } = await supabase
+    .from("user_polls")
+    .select("title, description")
+    .eq("slug", slug)
+    .single<{ title: string; description: string | null }>();
+
+  if (!poll) {
+    return { title: "Boardgames Meeples Poll" };
+  }
+
+  return {
+    title: poll.title,
+    description: poll.description ?? undefined,
+  };
+}
 
 function ManageLink() {
   return (
