@@ -17,7 +17,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/auth",
-    "/auth/:path*",
+    // /auth/callback is intentionally excluded — it handles its own session
+    // bootstrap via exchangeCodeForSession and must not be intercepted here.
     "/create",
     "/create/:path*",
     "/manage",
