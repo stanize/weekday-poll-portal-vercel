@@ -234,18 +234,15 @@ export default function UserPollVotingForm({ pollId, pollDates }: UserPollVoting
     setIsSubmitting(true);
 
     try {
-      if (isUpdating) {
-        const { error: deleteError } = await supabase
-          .from("user_votes")
-          .delete()
-          .eq("poll_id", pollId)
-          .eq("voter_name", voterName.trim())
-          .in("poll_date_id", allPollDateIds);
+      const { error: deleteError } = await supabase
+        .from("user_votes")
+        .delete()
+        .eq("poll_id", pollId)
+        .eq("voter_name", voterName.trim());
 
-        if (deleteError) {
-          setMessage(`Error updating votes: ${deleteError.message}`);
-          return;
-        }
+      if (deleteError) {
+        setMessage(`Error updating votes: ${deleteError.message}`);
+        return;
       }
 
       const rowsToInsert = selectedDateIds.map((pollDateId) => ({
