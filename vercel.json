@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/reset-weekly-poll", "schedule": "0 11 * * 5" }
+  ]
+}
