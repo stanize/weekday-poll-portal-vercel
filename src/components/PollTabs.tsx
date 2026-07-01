@@ -64,7 +64,7 @@ export default function PollTabs({
       {description && <h2 className="text-2xl font-semibold">{description}</h2>}
 
       <div className="space-y-4">
-        <div className="flex rounded-lg border border-white/15 overflow-hidden">
+        <div className="flex rounded-lg border overflow-hidden">
           {tabs.map((tab, i) => {
             const isActive = tab.key === activeTab;
             return (
@@ -74,15 +74,15 @@ export default function PollTabs({
                 onClick={() => setActiveTab(tab.key)}
                 aria-pressed={isActive}
                 className={`flex-1 px-4 py-2.5 text-center transition cursor-pointer ${
-                  i > 0 ? "border-l border-white/15" : ""
+                  i > 0 ? "border-l" : ""
                 } ${
                   isActive
-                    ? "bg-white text-black"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                    ? "bg-[var(--foreground)] text-[var(--background)]"
+                    : "text-gray-400 hover:text-[var(--foreground)] hover:bg-[var(--foreground)]/5"
                 }`}
               >
                 <div className="text-sm font-semibold">{tab.label}</div>
-                <div className={`text-xs mt-0.5 ${isActive ? "text-black/60" : "text-gray-500"}`}>
+                <div className={`text-xs mt-0.5 ${isActive ? "opacity-70" : "text-gray-500"}`}>
                   {formatWeekRange(tab.dates)}
                 </div>
               </button>
