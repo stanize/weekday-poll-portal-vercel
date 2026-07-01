@@ -103,27 +103,22 @@ export default async function PollPage({
 
         {poll && (
           <div className="border rounded-xl p-6 space-y-4">
-            <div>
-              <h2 className="text-2xl font-semibold">{poll.description}</h2>
-            </div>
+            {pollDatesError && (
+              <p className="text-red-500">Error loading dates: {pollDatesError}</p>
+            )}
 
-            <div>
-              {pollDatesError && (
-                <p className="text-red-500">Error loading dates: {pollDatesError}</p>
-              )}
+            {!pollDatesError && pollDatesWithCounts.length > 0 && (
+              <PollTabs
+                pollId={poll.id}
+                description={poll.description}
+                currentWeekDates={currentWeekDates}
+                nextWeekDates={nextWeekDates}
+              />
+            )}
 
-              {!pollDatesError && pollDatesWithCounts.length > 0 && (
-                <PollTabs
-                  pollId={poll.id}
-                  currentWeekDates={currentWeekDates}
-                  nextWeekDates={nextWeekDates}
-                />
-              )}
-
-              {!pollDatesError && pollDatesWithCounts.length === 0 && (
-                <p>No dates found.</p>
-              )}
-            </div>
+            {!pollDatesError && pollDatesWithCounts.length === 0 && (
+              <p>No dates found.</p>
+            )}
           </div>
         )}
       </div>

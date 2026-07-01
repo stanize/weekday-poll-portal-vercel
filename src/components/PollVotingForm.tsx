@@ -16,7 +16,6 @@ type PollVotingFormProps = {
   pollId: string;
   pollDates: PollDate[];
   voterName: string;
-  onVoterNameChange: (name: string) => void;
 };
 
 function formatPollDate(dateString: string) {
@@ -42,12 +41,7 @@ function getSessionToken() {
   return token;
 }
 
-export default function PollVotingForm({
-  pollId,
-  pollDates,
-  voterName,
-  onVoterNameChange,
-}: PollVotingFormProps) {
+export default function PollVotingForm({ pollId, pollDates, voterName }: PollVotingFormProps) {
   const router = useRouter();
   const [selectedDateIds, setSelectedDateIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,17 +82,12 @@ export default function PollVotingForm({
     );
   }
 
-  function handleNameChange(name: string) {
-    onVoterNameChange(name);
-    setMessage("");
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMessage("");
 
     if (!voterName.trim()) {
-      setMessage("Please enter your name.");
+      setMessage("Please enter your name above.");
       return;
     }
 
@@ -151,25 +140,11 @@ export default function PollVotingForm({
   const maxVotes = Math.max(...pollDates.map((d) => d.vote_count), 0);
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label htmlFor="voterName" className="block text-sm font-medium">
-          Name (Required)
-        </label>
-        <input
-          id="voterName"
-          type="text"
-          value={voterName}
-          onChange={(e) => handleNameChange(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 bg-transparent"
-          placeholder="Your name"
-          required
-        />
-        {isUpdating && (
-          <p className="text-sm text-yellow-400">
-            Existing votes found — editing will replace them.
-          </p>
-        )}
-      </div>
+      {isUpdating && (
+        <p className="text-sm text-yellow-400">
+          Existing votes found for this week — submitting will replace them.
+        </p>
+      )}
 
       <ul className="space-y-3">
         {pollDates.map((date) => (
