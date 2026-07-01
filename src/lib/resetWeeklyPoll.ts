@@ -1,14 +1,9 @@
 import { supabase } from "@/lib/supabase/client";
 
-function getUpcomingMonday(): Date {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const day = today.getDay();
-  const daysUntilMonday = day === 1 ? 7 : (8 - day) % 7 || 7; // always the *next* Monday
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + daysUntilMonday);
-  return monday;
-}
+type PollDateRow = {
+  id: string;
+  poll_date: string;
+};
 
 function getWeekdays(monday: Date) {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -20,6 +15,31 @@ function getWeekdays(monday: Date) {
   });
 }
 
+function addDays(dateStr: string, days: number): Date {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+// Fallback only — used if there's no existing "next" week to promote
+// (e.g. before the migration/backfill has ever run).
+function getUpcomingMonday(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = today.getDay();
+  const daysUntilMonday = day === 1 ? 7 : (8 - day) % 7 || 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + daysUntilMonday);
+  return monday;
+}
+
+/**
+ * Weekly rollover for the morningmeeples poll (runs via Vercel cron every
+ * Friday 11am):
+ *   1. Deletes the outgoing "current" week's dates + votes.
+ *   2. Promotes the "next" week's dates (and its votes, untouched) to "current".
+ *   3. Generates a fresh, empty "next" week one week after the newly-promoted one.
+ */
 export async function resetWeeklyPoll() {
   const { data: poll, error: pollError } = await supabase
     .from("polls")
@@ -29,32 +49,60 @@ export async function resetWeeklyPoll() {
 
   if (pollError || !poll) throw new Error("morningmeeples poll not found");
 
-  const { data: existingDates } = await supabase
+  const { data: allDates, error: fetchError } = await supabase
     .from("poll_dates")
-    .select("id")
+    .select("id, poll_date, week_type")
     .eq("poll_id", poll.id);
 
-  const existingIds = (existingDates ?? []).map((d) => d.id);
+  if (fetchError) throw new Error(`Error fetching poll dates: ${fetchError.message}`);
 
-  if (existingIds.length > 0) {
+  const currentRows = (allDates ?? []).filter((d) => d.week_type === "current") as PollDateRow[];
+  const nextRows = (allDates ?? []).filter((d) => d.week_type === "next") as PollDateRow[];
+
+  // 1. Delete the outgoing current week (dates + votes) — it's being replaced.
+  const currentIds = currentRows.map((d) => d.id);
+  if (currentIds.length > 0) {
     const { error: votesError } = await supabase
       .from("votes")
       .delete()
-      .in("poll_date_id", existingIds);
-    if (votesError) throw new Error(`Error deleting votes: ${votesError.message}`);
+      .in("poll_date_id", currentIds);
+    if (votesError) throw new Error(`Error deleting old current-week votes: ${votesError.message}`);
 
-    const { error: datesError } = await supabase
+    const { error: deleteError } = await supabase
       .from("poll_dates")
       .delete()
-      .eq("poll_id", poll.id);
-    if (datesError) throw new Error(`Error deleting dates: ${datesError.message}`);
+      .in("id", currentIds);
+    if (deleteError) throw new Error(`Error deleting old current-week dates: ${deleteError.message}`);
   }
 
-  const monday = getUpcomingMonday();
-  const rows = getWeekdays(monday).map((d) => ({ poll_id: poll.id, ...d }));
+  // 2. Promote next week -> current. Its votes stay attached (poll_date_id
+  //    is unchanged), so they carry over as-is.
+  const nextIds = nextRows.map((d) => d.id);
+  if (nextIds.length > 0) {
+    const { error: promoteError } = await supabase
+      .from("poll_dates")
+      .update({ week_type: "current" })
+      .in("id", nextIds);
+    if (promoteError) throw new Error(`Error promoting next week to current: ${promoteError.message}`);
+  }
 
-  const { error: insertError } = await supabase.from("poll_dates").insert(rows);
-  if (insertError) throw new Error(`Error inserting dates: ${insertError.message}`);
+  // 3. Generate a fresh, empty week for the new "next" — one week after
+  //    whichever week just got promoted.
+  const sortedNext = [...nextRows].sort((a, b) => a.poll_date.localeCompare(b.poll_date));
+  const newNextMonday =
+    sortedNext.length > 0 ? addDays(sortedNext[0].poll_date, 7) : getUpcomingMonday();
 
-  return { weekOf: monday.toISOString().slice(0, 10) };
+  const newNextRows = getWeekdays(newNextMonday).map((d) => ({
+    poll_id: poll.id,
+    week_type: "next" as const,
+    ...d,
+  }));
+
+  const { error: insertError } = await supabase.from("poll_dates").insert(newNextRows);
+  if (insertError) throw new Error(`Error inserting new next-week dates: ${insertError.message}`);
+
+  return {
+    promotedToCurrentWeekOf: sortedNext[0]?.poll_date ?? null,
+    newNextWeekOf: newNextMonday.toISOString().slice(0, 10),
+  };
 }

@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
-import PollVotingForm from "@/components/PollVotingForm";
+import PollTabs from "@/components/PollTabs";
 
 export const metadata = {
   title: "Morning Meeples Poll",
@@ -9,6 +9,13 @@ type Poll = {
   id: string;
   title: string;
   description: string | null;
+};
+
+type PollDateRow = {
+  id: string;
+  weekday_name: string;
+  poll_date: string;
+  week_type: "current" | "next";
 };
 
 type PollDate = {
@@ -36,23 +43,23 @@ export default async function PollPage({
     .select("id, title, description")
     .eq("slug", slug)
     .single<Poll>();
-  
-  let pollDates: PollDate[] = [];
+
+  let pollDates: PollDateRow[] = [];
   let pollDatesError: string | null = null;
-  let voteCountsMap: Record<string, number> = {};
-  let voterNamesMap: Record<string, string[]> = {};
+  const voteCountsMap: Record<string, number> = {};
+  const voterNamesMap: Record<string, string[]> = {};
 
   if (poll) {
     const { data, error } = await supabase
       .from("poll_dates")
-      .select("id, weekday_name, poll_date")
+      .select("id, weekday_name, poll_date, week_type")
       .eq("poll_id", poll.id)
       .order("poll_date", { ascending: true });
 
     if (error) {
       pollDatesError = error.message;
     } else if (data) {
-      pollDates = data as any[];
+      pollDates = data as PollDateRow[];
     }
 
     const pollDateIds = pollDates.map((d) => d.id);
@@ -72,11 +79,16 @@ export default async function PollPage({
     }
   }
 
-  const pollDatesWithCounts = pollDates.map((date) => ({
-    ...date,
-    vote_count: voteCountsMap[date.id] || 0,
-    voter_names: voterNamesMap[date.id] || [],
-  }));
+  const pollDatesWithCounts: (PollDate & { week_type: "current" | "next" })[] = pollDates.map(
+    (date) => ({
+      ...date,
+      vote_count: voteCountsMap[date.id] || 0,
+      voter_names: voterNamesMap[date.id] || [],
+    })
+  );
+
+  const currentWeekDates = pollDatesWithCounts.filter((d) => d.week_type === "current");
+  const nextWeekDates = pollDatesWithCounts.filter((d) => d.week_type === "next");
 
   return (
     <main className="min-h-screen flex items-center justify-center p-8">
@@ -93,7 +105,6 @@ export default async function PollPage({
           <div className="border rounded-xl p-6 space-y-4">
             <div>
               <h2 className="text-2xl font-semibold">{poll.description}</h2>
-              
             </div>
 
             <div>
@@ -102,7 +113,11 @@ export default async function PollPage({
               )}
 
               {!pollDatesError && pollDatesWithCounts.length > 0 && (
-                <PollVotingForm pollId={poll.id} pollDates={pollDatesWithCounts} />
+                <PollTabs
+                  pollId={poll.id}
+                  currentWeekDates={currentWeekDates}
+                  nextWeekDates={nextWeekDates}
+                />
               )}
 
               {!pollDatesError && pollDatesWithCounts.length === 0 && (

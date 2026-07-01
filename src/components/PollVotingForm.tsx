@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
@@ -15,6 +15,8 @@ type PollDate = {
 type PollVotingFormProps = {
   pollId: string;
   pollDates: PollDate[];
+  voterName: string;
+  onVoterNameChange: (name: string) => void;
 };
 
 function formatPollDate(dateString: string) {
@@ -40,15 +42,43 @@ function getSessionToken() {
   return token;
 }
 
-export default function PollVotingForm({ pollId, pollDates }: PollVotingFormProps) {
+export default function PollVotingForm({
+  pollId,
+  pollDates,
+  voterName,
+  onVoterNameChange,
+}: PollVotingFormProps) {
   const router = useRouter();
   const [selectedDateIds, setSelectedDateIds] = useState<string[]>([]);
-  const [voterName, setVoterName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
 
   const allPollDateIds = pollDates.map((d) => d.id);
+
+  // Recompute which dates are already voted for this name whenever the
+  // shared name or this week's dates change (e.g. switching tabs, or typing).
+  useEffect(() => {
+    const trimmed = voterName.trim().toLowerCase();
+
+    if (!trimmed) {
+      setSelectedDateIds([]);
+      setIsUpdating(false);
+      return;
+    }
+
+    const existingDates = pollDates
+      .filter((d) => (d.voter_names ?? []).some((v) => v.toLowerCase() === trimmed))
+      .map((d) => d.id);
+
+    if (existingDates.length > 0) {
+      setSelectedDateIds(existingDates);
+      setIsUpdating(true);
+    } else {
+      setSelectedDateIds([]);
+      setIsUpdating(false);
+    }
+  }, [voterName, pollDates]);
 
   function toggleDate(dateId: string) {
     setSelectedDateIds((current) =>
@@ -59,23 +89,8 @@ export default function PollVotingForm({ pollId, pollDates }: PollVotingFormProp
   }
 
   function handleNameChange(name: string) {
-    setVoterName(name);
+    onVoterNameChange(name);
     setMessage("");
-
-    const trimmed = name.trim().toLowerCase();
-    const existingDates = pollDates
-      .filter((d) =>
-        (d.voter_names ?? []).some((v) => v.toLowerCase() === trimmed)
-      )
-      .map((d) => d.id);
-
-    if (existingDates.length > 0) {
-      setSelectedDateIds(existingDates);
-      setIsUpdating(true);
-    } else {
-      setSelectedDateIds([]);
-      setIsUpdating(false);
-    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -96,7 +111,7 @@ export default function PollVotingForm({ pollId, pollDates }: PollVotingFormProp
 
     try {
       if (isUpdating) {
-        // Delete all existing votes for this name across all dates in this poll
+        // Delete all existing votes for this name across all dates in this week
         const { error: deleteError } = await supabase
           .from("votes")
           .delete()
@@ -123,13 +138,11 @@ export default function PollVotingForm({ pollId, pollDates }: PollVotingFormProp
         setMessage(`Error submitting vote: ${insertError.message}`);
       } else {
         setMessage(isUpdating ? "Votes updated successfully." : "Vote submitted successfully.");
-        setSelectedDateIds([]);
-        setVoterName("");
         setIsUpdating(false);
         router.refresh();
       }
     } catch (err) {
-    setMessage(`Something went wrong: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
+      setMessage(`Something went wrong: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
     } finally {
       setIsSubmitting(false);
     }
