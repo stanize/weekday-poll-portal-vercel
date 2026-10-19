@@ -1,7 +1,18 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import HeavyGamesGrid from "./HeavyGamesGrid";
 
-export const metadata = { title: "Heavy Games Poll" };
+const description = "Choose the dates you can make it for heavy games.";
+
+export const metadata = {
+  title: "Heavy Games Poll",
+  description,
+  openGraph: {
+    title: "Heavy Games Poll",
+    description,
+    type: "website",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
+  },
+};
 export const dynamic = "force-dynamic";
 
 export default async function HeavyGamesPollPage() {
