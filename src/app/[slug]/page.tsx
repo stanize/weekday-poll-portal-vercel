@@ -1,8 +1,17 @@
 import { supabase } from "@/lib/supabase/client";
 import PollTabs from "@/components/PollTabs";
 
+const description = "Choose the weekdays you can make it for Morning Meeples.";
+
 export const metadata = {
   title: "Morning Meeples Poll",
+  description,
+  openGraph: {
+    title: "Morning Meeples Poll",
+    description,
+    type: "website",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
+  },
 };
 
 type Poll = {
