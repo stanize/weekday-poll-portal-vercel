@@ -141,7 +141,7 @@ All new tables have RLS enabled.
 
 ## Working Mode — Full Automation
 
-The owner chose full automation: **commit and push without pausing for approval, no pull requests.** Do not ask "should I push?". Cloud sessions push to their designated session branch. The owner tests manually after changes land.
+The owner chose full automation: **commit and push without pausing for approval, no pull requests.** Do not ask "should I push?". Always push to `main` (also keep the session branch in sync). The owner tests manually after changes land.
 
 **Workflow-file status after coding:** when a `workflows/*.md` step's code is implemented in a session, do NOT mark it `done`. Use `in_progress` with a "pending manual testing" criteria note. Only flip to `done` once the owner confirms (or it was verified in a live running app).
 
