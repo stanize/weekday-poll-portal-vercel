@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { buildMonths, formatDay } from "@/lib/monthGrid";
@@ -18,6 +18,7 @@ export default function HeavyGamesGrid({ poll, votes }: Props) {
   // Days the user has toggled; null = untouched, fall back to their saved votes.
   const [picked, setPicked] = useState<string[] | null>(null);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const months = useMemo(() => buildMonths(poll.start_date, poll.end_date), [poll]);
@@ -43,11 +44,19 @@ export default function HeavyGamesGrid({ poll, votes }: Props) {
     });
   }
 
+  useEffect(() => {
+    if (!error) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setError("");
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [error]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMessage("");
-    if (!trimmed) return setMessage("Please enter your name.");
-    if (selected.length === 0) return setMessage("Please select at least one date.");
+    setError("");
+    if (!trimmed) return setError("Please enter your name.");
+    if (selected.length === 0) return setError("Please select at least one date.");
 
     setSubmitting(true);
     try {
@@ -68,7 +77,7 @@ export default function HeavyGamesGrid({ poll, votes }: Props) {
       setPicked(null);
       router.refresh();
     } catch (err) {
-      setMessage(`Something went wrong: ${err instanceof Error ? err.message : "unknown error"}`);
+      setError(`Something went wrong: ${err instanceof Error ? err.message : "unknown error"}`);
     } finally {
       setSubmitting(false);
     }
@@ -144,8 +153,36 @@ export default function HeavyGamesGrid({ poll, votes }: Props) {
       >
         {submitting ? "Submitting..." : isUpdating ? "Update votes" : "Submit vote"}
       </button>
-      {message && <p className="text-sm text-gray-300">{message}</p>}
+      {error && (
+        <p role="alert" className="text-sm font-bold text-red-500">{error}</p>
+      )}
+      {message && <p className="text-sm font-bold text-green-500">{message}</p>}
       <p className="text-xs text-gray-500">Tap a day to mark it. Numbers show how many people can make it; hover a day to see who.</p>
+
+      {error && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setError("")}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Error"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-xl border-2 border-red-500 bg-[var(--background)] p-6 space-y-4 text-center"
+          >
+            <p className="text-lg font-bold text-red-500">{error}</p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setError("")}
+              className="rounded-lg border border-red-500 px-4 py-2 font-medium text-red-500 hover:bg-red-500 hover:text-white transition"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
