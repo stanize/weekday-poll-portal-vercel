@@ -46,23 +46,19 @@ export default async function HeavyGamesPollPage() {
       <div className="max-w-2xl w-full space-y-6">
         <h1 className="text-4xl font-bold text-center">{poll?.title ?? "Heavy Games Poll"}</h1>
         {poll && topDates(votes ?? []).length > 0 && (
-          <div className="border rounded-xl p-6 space-y-3">
-            <h2 className="text-lg font-semibold">Top dates</h2>
-            <ol className="space-y-3">
+          <div className="border rounded-xl px-4 py-3 space-y-1">
+            <h2 className="text-sm font-semibold">Top dates</h2>
+            <ol className="space-y-0.5 text-sm">
               {topDates(votes ?? []).map(({ date, voters }, i) => (
-                <li key={date} className="flex gap-3">
-                  <span className="text-gray-500">{i + 1}.</span>
-                  <div>
-                    <p>
-                      <strong>{fmt({ day: "numeric", month: "long", year: "numeric" }, date)}</strong>
-                      {" · "}
-                      {fmt({ weekday: "long" }, date)}
-                      <span className="text-gray-400">
-                        {" "}({voters.length} vote{voters.length === 1 ? "" : "s"})
-                      </span>
-                    </p>
-                    <p className="text-sm text-gray-400">{voters.join(", ")}</p>
-                  </div>
+                <li key={date}>
+                  <span className="text-gray-500">{i + 1}.</span>{" "}
+                  <strong>{fmt({ day: "numeric", month: "short", year: "numeric" }, date)}</strong>
+                  {" · "}
+                  {fmt({ weekday: "long" }, date)}
+                  {" · "}
+                  <span className="text-gray-400">
+                    {voters.length} vote{voters.length === 1 ? "" : "s"}: {voters.join(", ")}
+                  </span>
                 </li>
               ))}
             </ol>
