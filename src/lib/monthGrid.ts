@@ -8,7 +8,7 @@ export type GridMonth = {
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
-/** Months overlapping [start, end] (YYYY-MM-DD), as Monday-first grids. */
+/** Months overlapping [start, end] (YYYY-MM-DD), as Monday-first grids; only weeks touching the range are kept. */
 export function buildMonths(start: string, end: string): GridMonth[] {
   const [sy, sm] = start.split("-").map(Number);
   const [ey, em] = end.split("-").map(Number);
@@ -24,10 +24,17 @@ export function buildMonths(start: string, end: string): GridMonth[] {
     const lead = (first.getUTCDay() + 6) % 7;
     const cells: (string | null)[] = Array(lead).fill(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(iso(y, m, d));
+    while (cells.length % 7) cells.push(null);
+    // Drop weeks that contain no date inside [start, end].
+    const weeks: (string | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      const week = cells.slice(i, i + 7);
+      if (week.some((c) => c && c >= start && c <= end)) weeks.push(week);
+    }
     months.push({
       key: `${y}-${pad(m + 1)}`,
       label: first.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }),
-      cells,
+      cells: weeks.flat(),
     });
   }
   return months;
