@@ -1,5 +1,3 @@
-Replace the entire contents of CLAUDE.md with the following:
-
 @AGENTS.md
 
 # Project: Weekday Poll Portal
@@ -132,3 +130,20 @@ All new tables have RLS enabled.
 - The user-created-polls feature (create/, manage/, poll/[slug]/, generateDates.ts,
   user_polls/user_poll_dates/user_votes tables) is being moved out of this repo into its own
   project — avoid new investment here unless asked
+
+## Working Mode — Full Automation
+
+The owner chose full automation: **commit and push without pausing for approval, no pull requests.** Do not ask "should I push?". Cloud sessions push to their designated session branch. The owner tests manually after changes land.
+
+**Workflow-file status after coding:** when a `workflows/*.md` step's code is implemented in a session, do NOT mark it `done`. Use `in_progress` with a "pending manual testing" criteria note. Only flip to `done` once the owner confirms (or it was verified in a live running app).
+
+## Working Process
+
+Loop for any feature: **Design → Code → Test → Review**, with `workflows/*.md` as the single source of truth.
+
+- **Design**: write settled decisions into the relevant `workflows/*.md` step (`Status: not_started`), detailed enough for a fresh session to build from. Undecided items go to `workflows/backlog.md` / `workflows/ideas.md`; cross-cutting observations to `workflows/notes.md`.
+- **Code**: implement the step, set `Status: in_progress` with a pending-testing note.
+- **Test**: the owner tests manually. Works -> `done`. Bug -> back to Code, append a "BUG FOUND + FIXED" note.
+- **Review**: `REVIEW.md` in a dedicated session; waits for confirmation before pushing (the one exception to full automation). `RESYNC.md` keeps this documentation aligned with the code.
+
+Every decision lives in a workflow file or this CLAUDE.md, never only in chat.
