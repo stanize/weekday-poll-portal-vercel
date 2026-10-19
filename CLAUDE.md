@@ -80,12 +80,20 @@ a matching change in the others.
 Migration for week_type: supabase/migrations/20260701_add_week_type_to_poll_dates.sql
 (additive only — safe to re-run, never deletes existing dates/votes).
 
+### Heavy games poll (month-long, see workflows/heavy-games-poll.md)
+- heavy_polls  → id, slug, title, start_date, end_date
+- heavy_votes  → id, poll_id, vote_date, voter_name
+Public page `/heavy-games-poll`; admin in the second tab of `/sauron`. Migration: supabase/migrations/20261019_heavy_games_poll.sql.
+
 ### User-created polls (legacy — being extracted to a separate project)
 - user_polls        → id, owner_id, owner_email, title, description, slug, is_active, created_at
 - user_poll_dates   → id, poll_id, weekday_name, poll_date, time_slot, created_at
 - user_votes        → id, poll_id, poll_date_id, voter_name, session_token, created_at
 
 All new tables have RLS enabled.
+
+## Sauron auth
+`/sauron` is gated by `src/app/sauron/layout.tsx` (login form + signed cookie, `src/lib/adminAuth.ts`). Env: `ADMIN_USERNAME`, `ADMIN_PASSWORD`, optional `ADMIN_SESSION_SECRET`.
 
 ## Supabase clients
 - Server Components / Route Handlers → import { createSupabaseServerClient } from "@/lib/supabase/server"
